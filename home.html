@@ -722,7 +722,9 @@
       line-height: 1.4;
     }
 
-    .setting-row select {
+    .setting-row select,
+    .setting-row input[type="password"],
+    .setting-row input[type="text"] {
       width: 100%;
       padding: 9px 10px;
       outline: 0;
@@ -1011,6 +1013,19 @@
 
       <div class="modal-body">
         <section class="settings-group">
+          <h3>API Credentials</h3>
+          <p>Configure your API key for accessing OpenRouter AI models.</p>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">OpenRouter API Key</div>
+              <div class="setting-help">Enter your custom OpenRouter API key. Stored locally in your browser.</div>
+            </div>
+            <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." />
+          </div>
+        </section>
+
+        <section class="settings-group">
           <h3>Appearance</h3>
           <p>Customize the visual display of AyahAI. These settings do not alter your AI request.</p>
 
@@ -1092,10 +1107,14 @@
 
   <script>
     // ==========================================================
-    // AI CONFIGURATION — UNCHANGED FROM YOUR ORIGINAL VERSION
+    // AI CONFIGURATION
     // ==========================================================
-    const API_KEY = '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'; // Replace with your existing key
+    const DEFAULT_API_KEY = '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'; 
     const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+    function getApiKey() {
+      return localStorage.getItem('ayahai_api_key') || DEFAULT_API_KEY;
+    }
 
     // ==========================================================
     // STATE
@@ -1138,6 +1157,7 @@
     const cancelSettingsBtnEl = document.getElementById('cancelSettingsBtn');
     const saveSettingsBtnEl = document.getElementById('saveSettingsBtn');
 
+    const apiKeyInputEl = document.getElementById('apiKeyInput');
     const settingsThemeEl = document.getElementById('settingsTheme');
     const timestampsToggleEl = document.getElementById('timestampsToggle');
     const autoReadToggleEl = document.getElementById('autoReadToggle');
@@ -1262,6 +1282,7 @@
     });
 
     function openSettings() {
+      apiKeyInputEl.value = localStorage.getItem('ayahai_api_key') || '';
       settingsThemeEl.value = document.documentElement.getAttribute('data-theme');
       timestampsToggleEl.classList.toggle('active', appSettings.showTimestamps);
       autoReadToggleEl.classList.toggle('active', appSettings.autoRead);
@@ -1275,524 +1296,372 @@
     }
 
     function saveSettings() {
+      const newApiKey = apiKeyInputEl.value.trim();
+      if (newApiKey) {
+        localStorage.setItem('ayahai_api_key', newApiKey);
+      } else {
+        localStorage.removeItem('ayahai_api_key');
+      }
+
       const selectedTheme = settingsThemeEl.value;
+      document.documentElement.setAttribute('data-theme', selectedTheme);
+      localStorage.setItem('ayahai_theme', selectedTheme);
 
       appSettings.showTimestamps = timestampsToggleEl.classList.contains('active');
       appSettings.autoRead = autoReadToggleEl.classList.contains('active');
       appSettings.voiceLanguage = voiceLanguageSelectEl.value;
 
-      localStorage.setItem('ayahai_theme', selectedTheme);
       localStorage.setItem('ayahai_show_timestamps', JSON.stringify(appSettings.showTimestamps));
       localStorage.setItem('ayahai_auto_read', JSON.stringify(appSettings.autoRead));
       localStorage.setItem('ayahai_voice_language', appSettings.voiceLanguage);
 
-      document.documentElement.setAttribute('data-theme', selectedTheme);
-
-      if (recognition) {
-        recognition.lang = appSettings.voiceLanguage;
-      }
-
       closeSettings();
-      loadChat(currentChatId);
+      renderMessages();
     }
 
     // ==========================================================
-    // VOICE INPUT — SAME FEATURE, WITH SETTINGS LANGUAGE OPTION
+    // VOICE RECOGNITION
     // ==========================================================
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
       recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = appSettings.voiceLanguage;
-
-      recognition.onstart = () => {
-        isListening = true;
-        voiceBtnEl.classList.add('listening');
-      };
 
       recognition.onresult = event => {
         const transcript = event.results[0][0].transcript;
-
-        userInputEl.value += (userInputEl.value ? ' ' : '') + transcript;
-        userInputEl.style.height = 'auto';
-        userInputEl.style.height = Math.min(userInputEl.scrollHeight, 170) + 'px';
+        userInputEl.value = (userInputEl.value + ' ' + transcript).trim();
+        userInputEl.dispatchEvent(new Event('input'));
+        stopListening();
       };
 
-      recognition.onend = () => {
-        isListening = false;
-        voiceBtnEl.classList.remove('listening');
-      };
-
-      recognition.onerror = () => {
-        isListening = false;
-        voiceBtnEl.classList.remove('listening');
-      };
+      recognition.onerror = stopListening;
+      recognition.onend = stopListening;
 
       voiceBtnEl.addEventListener('click', () => {
         if (isListening) {
-          recognition.stop();
+          stopListening();
         } else {
-          recognition.lang = appSettings.voiceLanguage;
-          recognition.start();
+          startListening();
         }
       });
     } else {
       voiceBtnEl.style.display = 'none';
     }
 
-    // ==========================================================
-    // CHAT FUNCTIONS
-    // ==========================================================
-    function createNewChat() {
-      const id = Date.now().toString();
-
-      const chat = {
-        id,
-        title: 'New Chat',
-        createdAt: Date.now(),
-        messages: []
-      };
-
-      chats.unshift(chat);
-      saveChats();
-      loadChat(id);
-      renderChatList();
-      closeSidebar();
+    function startListening() {
+      if (!recognition) return;
+      try {
+        recognition.lang = appSettings.voiceLanguage;
+        recognition.start();
+        isListening = true;
+        voiceBtnEl.classList.add('listening');
+      } catch (e) {
+        stopListening();
+      }
     }
 
-    function loadChat(id) {
-      currentChatId = id;
+    function stopListening() {
+      if (!recognition) return;
+      try {
+        recognition.stop();
+      } catch (e) {}
+      isListening = false;
+      voiceBtnEl.classList.remove('listening');
+    }
 
-      const chat = chats.find(item => item.id === id);
-      if (!chat) return;
+    // ==========================================================
+    // CHAT MANAGEMENT
+    // ==========================================================
+    function createNewChat() {
+      const newChat = {
+        id: 'chat_' + Date.now(),
+        title: 'New conversation',
+        messages: [],
+        createdAt: new Date().toISOString()
+      };
 
-      messagesEl.innerHTML = '';
+      chats.unshift(newChat);
+      saveChats();
+      loadChat(newChat.id);
+      renderChatList();
+      if (window.innerWidth <= 768) closeSidebar();
+    }
 
-      if (!chat.messages.length) {
-        messagesEl.innerHTML = `
-          <div class="welcome">
-            <h1>How can AyahAI help?</h1>
-            <p>
-              Ask about Islamic studies, Qur'an and Hadith references,
-              history, science, technology, or everyday topics.
-            </p>
-          </div>
-        `;
-      } else {
-        chat.messages.forEach((message, index) => {
-          appendMessage(message.role, message.content, false, index, message.model || currentModel);
-        });
-      }
-
-      userInputEl.value = '';
-      userInputEl.style.height = 'auto';
-      userInputEl.focus();
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+    function loadChat(chatId) {
+      currentChatId = chatId;
+      renderChatList();
+      renderMessages();
     }
 
     function clearCurrentChat() {
-      const chat = chats.find(item => item.id === currentChatId);
+      const chat = chats.find(c => c.id === currentChatId);
       if (!chat) return;
 
-      const accepted = confirm('Clear all messages in this chat?');
-      if (!accepted) return;
-
-      chat.messages = [];
-      chat.title = 'New Chat';
-
-      saveChats();
-      loadChat(currentChatId);
-      renderChatList();
-    }
-
-    function renderChatList() {
-      const searchQuery = chatSearchEl.value.trim().toLowerCase();
-      chatListEl.innerHTML = '';
-
-      chats
-        .filter(chat => chat.title.toLowerCase().includes(searchQuery))
-        .forEach(chat => {
-          const button = document.createElement('button');
-          button.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
-
-          const dot = document.createElement('span');
-          dot.className = 'chat-dot';
-
-          const title = document.createElement('span');
-          title.className = 'chat-item-title';
-          title.textContent = chat.title;
-
-          const time = document.createElement('span');
-          time.className = 'chat-time';
-          time.textContent = relativeTime(chat.createdAt);
-
-          button.append(dot, title, time);
-
-          button.addEventListener('click', () => {
-            loadChat(chat.id);
-            renderChatList();
-
-            if (window.innerWidth <= 768) {
-              closeSidebar();
-            }
-          });
-
-          chatListEl.appendChild(button);
-        });
+      if (confirm('Clear messages in this chat?')) {
+        chat.messages = [];
+        chat.title = 'New conversation';
+        saveChats();
+        renderChatList();
+        renderMessages();
+      }
     }
 
     function saveChats() {
       localStorage.setItem('ayahai_chats', JSON.stringify(chats));
     }
 
-    // ==========================================================
-    // MESSAGE DISPLAY + ADVANCED RESPONSE ACTIONS
-    // ==========================================================
-    function appendMessage(role, content, animate = true, messageIndex = -1, messageModel = currentModel) {
-      const row = document.createElement('div');
-      row.className = `message-row ${role === 'user' ? 'user' : 'assistant'}`;
+    function renderChatList() {
+      const query = chatSearchEl.value.toLowerCase().trim();
+      chatListEl.innerHTML = '';
 
-      if (!animate) {
-        row.style.animation = 'none';
-      }
+      const filteredChats = chats.filter(c => c.title.toLowerCase().includes(query));
 
-      const container = document.createElement('div');
-      container.className = 'message-container';
+      filteredChats.forEach(chat => {
+        const item = document.createElement('button');
+        item.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
+        
+        const date = new Date(chat.createdAt);
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-      const message = document.createElement('div');
-      message.className = `message ${role === 'user' ? 'user-msg' : 'ai-msg'}`;
+        item.innerHTML = `
+          <span class="chat-dot"></span>
+          <span class="chat-item-title">${escapeHtml(chat.title)}</span>
+          <span class="chat-time">${timeStr}</span>
+        `;
 
-      if (role === 'assistant') {
-        const paragraphs = content.split('\n\n').filter(paragraph => paragraph.trim());
-        message.innerHTML = paragraphs.map(paragraph => `<p>${formatText(paragraph)}</p>`).join('');
-      } else {
-        message.textContent = content;
-      }
-
-      container.appendChild(message);
-
-      if (appSettings.showTimestamps) {
-        const meta = document.createElement('div');
-        meta.className = 'message-meta';
-
-        meta.textContent = role === 'assistant'
-          ? `AyahAI ${messageModel === 'pro' ? 'Pro' : 'Base'} • ${currentTime()}`
-          : `You • ${currentTime()}`;
-
-        container.appendChild(meta);
-      }
-
-      const actions = document.createElement('div');
-      actions.className = 'response-actions';
-
-      if (role === 'assistant') {
-        addResponseAction(actions, 'Copy', async button => {
-          await copyText(content);
-          button.textContent = 'Copied';
-          setTimeout(() => button.textContent = 'Copy', 1000);
+        item.addEventListener('click', () => {
+          loadChat(chat.id);
+          if (window.innerWidth <= 768) closeSidebar();
         });
 
-        addResponseAction(actions, 'Read aloud', () => {
-          readAloud(content);
-        });
-
-        addResponseAction(actions, '↻ Retry', () => {
-          retryResponse(messageIndex, messageModel);
-        });
-
-        addResponseAction(actions, 'Retry Base', () => {
-          retryResponse(messageIndex, 'base');
-        });
-
-        addResponseAction(actions, 'Retry Pro', () => {
-          retryResponse(messageIndex, 'pro');
-        });
-
-        addResponseAction(actions, 'Delete', () => {
-          deleteMessage(messageIndex);
-        }, 'danger');
-      }
-
-      if (role === 'user') {
-        addResponseAction(actions, 'Copy', async button => {
-          await copyText(content);
-          button.textContent = 'Copied';
-          setTimeout(() => button.textContent = 'Copy', 1000);
-        });
-
-        addResponseAction(actions, 'Edit', () => {
-          editUserMessage(messageIndex);
-        });
-
-        addResponseAction(actions, 'Delete', () => {
-          deleteMessage(messageIndex);
-        }, 'danger');
-      }
-
-      container.appendChild(actions);
-      row.appendChild(container);
-      messagesEl.appendChild(row);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+        chatListEl.appendChild(item);
+      });
     }
 
-    function addResponseAction(container, label, handler, extraClass = '') {
-      const button = document.createElement('button');
-      button.className = `response-action-btn ${extraClass}`;
-      button.textContent = label;
-      button.addEventListener('click', () => handler(button));
-      container.appendChild(button);
-    }
+    function renderMessages() {
+      const chat = chats.find(c => c.id === currentChatId);
+      messagesEl.innerHTML = '';
 
-    function formatText(text) {
-      const escaped = escapeHtml(text);
-
-      return escaped
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>');
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    async function copyText(text) {
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {
-        const temporary = document.createElement('textarea');
-        temporary.value = text;
-        document.body.appendChild(temporary);
-        temporary.select();
-        document.execCommand('copy');
-        temporary.remove();
-      }
-    }
-
-    function readAloud(text) {
-      if (!('speechSynthesis' in window)) {
-        alert('Read aloud is not supported in this browser.');
+      if (!chat || chat.messages.length === 0) {
+        messagesEl.innerHTML = `
+          <div class="welcome">
+            <h1>Assalamu Alaikum</h1>
+            <p>Welcome to AyahAI. Ask questions regarding Islamic teachings, Quran, Hadith, or general daily inquiry topics.</p>
+          </div>
+        `;
         return;
       }
 
-      speechSynthesis.cancel();
+      chat.messages.forEach((msg, index) => {
+        const row = document.createElement('div');
+        row.className = `message-row ${msg.role}`;
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = appSettings.voiceLanguage;
-      speechSynthesis.speak(utterance);
-    }
+        const container = document.createElement('div');
+        container.className = 'message-container';
 
-    function deleteMessage(index) {
-      const chat = chats.find(item => item.id === currentChatId);
-      if (!chat || index < 0) return;
+        const bubble = document.createElement('div');
+        bubble.className = `message ${msg.role === 'user' ? 'user-msg' : 'ai-msg'}`;
+        
+        if (msg.role === 'user') {
+          bubble.textContent = msg.content;
+        } else {
+          bubble.innerHTML = formatMarkdown(msg.content);
+        }
 
-      chat.messages.splice(index, 1);
-      saveChats();
-      loadChat(currentChatId);
-    }
+        container.appendChild(bubble);
 
-    function editUserMessage(index) {
-      const chat = chats.find(item => item.id === currentChatId);
-      if (!chat || !chat.messages[index] || chat.messages[index].role !== 'user') return;
+        if (appSettings.showTimestamps) {
+          const meta = document.createElement('div');
+          meta.className = 'message-meta';
+          const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          meta.textContent = `${msg.role === 'user' ? 'You' : 'AyahAI'} • ${time} ${msg.model ? '• ' + msg.model : ''}`;
+          container.appendChild(meta);
+        }
 
-      userInputEl.value = chat.messages[index].content;
+        if (msg.role === 'assistant') {
+          const actions = document.createElement('div');
+          actions.className = 'response-actions';
 
-      // Removes the edited question and every response after it.
-      chat.messages.splice(index);
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'response-action-btn';
+          copyBtn.textContent = '📋 Copy';
+          copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(msg.content);
+            copyBtn.textContent = '✓ Copied';
+            setTimeout(() => (copyBtn.textContent = '📋 Copy'), 2000);
+          });
 
-      saveChats();
-      loadChat(currentChatId);
+          const speakBtn = document.createElement('button');
+          speakBtn.className = 'response-action-btn';
+          speakBtn.textContent = '🔊 Read aloud';
+          speakBtn.addEventListener('click', () => speakText(msg.content));
 
-      userInputEl.focus();
-      userInputEl.style.height = 'auto';
-      userInputEl.style.height = Math.min(userInputEl.scrollHeight, 170) + 'px';
-    }
+          actions.appendChild(copyBtn);
+          actions.appendChild(speakBtn);
+          container.appendChild(actions);
+        }
 
-    async function retryResponse(assistantIndex, selectedModel) {
-      const chat = chats.find(item => item.id === currentChatId);
-      if (!chat || assistantIndex < 1) return;
+        row.appendChild(container);
+        messagesEl.appendChild(row);
+      });
 
-      let userMessageIndex = assistantIndex - 1;
-
-      while (userMessageIndex >= 0 && chat.messages[userMessageIndex].role !== 'user') {
-        userMessageIndex--;
-      }
-
-      if (userMessageIndex < 0) return;
-
-      // Remove the response being retried.
-      chat.messages.splice(assistantIndex, 1);
-      saveChats();
-      loadChat(currentChatId);
-
-      await generateAIResponse(
-        chat.messages[userMessageIndex].content,
-        selectedModel,
-        false
-      );
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
     // ==========================================================
-    // AI REQUEST — SAME OPENROUTER REQUEST LOGIC AS YOUR VERSION
+    // API & SEND
     // ==========================================================
     async function sendMessage() {
       const text = userInputEl.value.trim();
       if (!text) return;
 
-      userInputEl.value = '';
-      userInputEl.style.height = 'auto';
-
-      const chat = chats.find(item => item.id === currentChatId);
+      let chat = chats.find(c => c.id === currentChatId);
       if (!chat) return;
 
-      chat.messages.push({
+      const userMsg = {
         role: 'user',
-        content: text
-      });
+        content: text,
+        timestamp: new Date().toISOString()
+      };
+
+      chat.messages.push(userMsg);
 
       if (chat.messages.length === 1) {
-        chat.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
+        chat.title = text.length > 28 ? text.substring(0, 28) + '...' : text;
       }
 
+      userInputEl.value = '';
+      userInputEl.style.height = 'auto';
       saveChats();
       renderChatList();
-      loadChat(currentChatId);
-
-      await generateAIResponse(text, currentModel, true);
-    }
-
-    async function generateAIResponse(text, selectedModel, addUserMessageAlreadyAdded) {
-      const chat = chats.find(item => item.id === currentChatId);
-      if (!chat) return;
+      renderMessages();
 
       sendBtnEl.disabled = true;
-      sendBtnEl.innerHTML = `
-        <div class="loading-dots">
-          <div class="dot"></div>
-          <div class="dot"></div>
-          <div class="dot"></div>
+
+      // Indicator
+      const loadingRow = document.createElement('div');
+      loadingRow.className = 'message-row assistant';
+      loadingRow.innerHTML = `
+        <div class="message-container">
+          <div class="message ai-msg">
+            <div class="loading-dots">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+            </div>
+          </div>
         </div>
       `;
+      messagesEl.appendChild(loadingRow);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
 
       try {
-        // UNCHANGED PROMPTS FROM YOUR ORIGINAL VERSION
-        const systemPrompt = selectedModel === 'base'
-          ? "You are AyahAI, a helpful Islamic and general knowledge assistant. Answer concisely in 5–10 lines. Use clear paragraphs and bold key points."
-          : "You are AyahAI, a helpful Islamic and general knowledge assistant. Answer in detail with depth, 20–70 lines. Include Quranic references, Hadith, and scholarly views where relevant. Use clear paragraph breaks and bold important terms.";
+        const response = await generateAIResponse(chat);
+        messagesEl.removeChild(loadingRow);
 
-        // UNCHANGED OPENROUTER REQUEST CONFIGURATION FROM YOUR ORIGINAL VERSION
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${API_KEY}`,
-            'HTTP-Referer': window.location.origin,
-            'X-Title': 'AyahAI'
-          },
-          body: JSON.stringify({
-            model: 'openai/gpt-4o-mini',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              ...chat.messages
-            ],
-            temperature: 0.7,
-            max_tokens: selectedModel === 'base' ? 400 : 2000
-          })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data?.error?.message || `Request failed: ${response.status}`);
-        }
-
-        const aiText = data.choices?.[0]?.message?.content
-          || 'Sorry, I could not generate a response.';
-
-        chat.messages.push({
+        const aiMsg = {
           role: 'assistant',
-          content: aiText,
-          model: selectedModel
-        });
+          content: response,
+          timestamp: new Date().toISOString(),
+          model: currentModel.toUpperCase()
+        };
 
+        chat.messages.push(aiMsg);
         saveChats();
-        loadChat(currentChatId);
+        renderMessages();
 
         if (appSettings.autoRead) {
-          readAloud(aiText);
+          speakText(response);
         }
       } catch (err) {
-        const errorText = `⚠️ Error: ${err.message || 'Could not connect to AI service. Check your API key and internet connection.'}`;
-
-        chat.messages.push({
+        messagesEl.removeChild(loadingRow);
+        
+        const errorMsg = {
           role: 'assistant',
-          content: errorText,
-          model: selectedModel
-        });
+          content: '⚠️ ' + (err.message || 'Error connecting to API. Please check your API key in Settings.'),
+          timestamp: new Date().toISOString(),
+          model: currentModel.toUpperCase()
+        };
 
+        chat.messages.push(errorMsg);
         saveChats();
-        loadChat(currentChatId);
-        console.error(err);
+        renderMessages();
       } finally {
         sendBtnEl.disabled = false;
-        sendBtnEl.textContent = '➤';
       }
     }
 
-    // ==========================================================
-    // EXPORT
-    // ==========================================================
-    function exportChats() {
-      const fileContent = JSON.stringify({
-        app: 'AyahAI',
-        exportedAt: new Date().toISOString(),
-        chats
-      }, null, 2);
+    async function generateAIResponse(chat) {
+      const activeApiKey = getApiKey();
+      const systemPrompt = "You are AyahAI, a helpful, polite, and accurate AI assistant specializing in Islamic knowledge and daily general guidance. Provide clear, respectful, and well-structured answers.";
 
-      const blob = new Blob([fileContent], {
-        type: 'application/json'
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeApiKey}`,
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'AyahAI'
+        },
+        body: JSON.stringify({
+          model: 'openrouter/free',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...chat.messages.map(m => ({ role: m.role, content: m.content }))
+          ],
+          temperature: 0.7,
+          max_tokens: currentModel === 'base' ? 400 : 2000
+        })
       });
 
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `API Error: ${response.status}`);
+      }
 
-      link.href = url;
-      link.download = 'ayahai-chats.json';
-      link.click();
-
-      URL.revokeObjectURL(url);
+      const data = await response.json();
+      return data.choices[0]?.message?.content || 'No response generated.';
     }
 
     // ==========================================================
-    // HELPERS
+    // UTILS
     // ==========================================================
-    function currentTime() {
-      return new Intl.DateTimeFormat([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(new Date());
+    function formatMarkdown(text) {
+      let formatted = escapeHtml(text);
+      formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      formatted = formatted.replace(/\n\n/g, '</p><p>');
+      formatted = formatted.replace(/\n/g, '<br>');
+      return `<p>${formatted}</p>`;
     }
 
-    function relativeTime(time) {
-      if (!time) return 'now';
-
-      const minutes = Math.floor((Date.now() - time) / 60000);
-
-      if (minutes < 1) return 'now';
-      if (minutes < 60) return `${minutes}m`;
-      if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
-
-      return `${Math.floor(minutes / 1440)}d`;
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
-    // ==========================================================
-    // PWA
-    // ==========================================================
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const cleanText = text.replace(/[*_#]/g, '');
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = appSettings.voiceLanguage;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function exportChats() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(chats, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `ayahai_chats_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
     }
   </script>
 </body>
