@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to AyahAI</title>
+
+  <meta name="theme-color" content="#62bf89" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <style>
+    :root {
+      --green: #70ca98;
+      --green-bright: #a9edc5;
+      --green-deep: #3e9c68;
+      --green-dark: #1f5d42;
+      --cream: #f5fff8;
+      --text: #eafff0;
+      --muted: #b5d8c1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow: hidden;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% 45%, rgba(110, 205, 152, 0.15), transparent 27%),
+        radial-gradient(circle at 10% 10%, rgba(130, 230, 175, 0.12), transparent 25%),
+        radial-gradient(circle at 90% 90%, rgba(44, 139, 94, 0.18), transparent 28%),
+        linear-gradient(135deg, #07140e 0%, #0d2418 45%, #06120c 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .splash {
+      position: relative;
+      display: grid;
+      width: 100%;
+      height: 100%;
+      min-height: 100svh;
+      place-items: center;
+      isolation: isolate;
+    }
+
+    .noise,
+    .grid,
+    .aurora,
+    .particle-field,
+    .stars,
+    .shooters {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .noise {
+      z-index: -8;
+      opacity: 0.18;
+      background-image:
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+      mix-blend-mode: soft-light;
+    }
+
+    .grid {
+      z-index: -7;
+      opacity: 0.27;
+      background-image:
+        linear-gradient(rgba(137, 235, 174, 0.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(137, 235, 174, 0.09) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+      animation: gridMove 18s linear infinite;
+    }
+
+    .aurora {
+      z-index: -6;
+      filter: blur(55px);
+      opacity: 0.65;
+    }
+
+    .aurora::before,
+    .aurora::after {
+      position: absolute;
+      width: 46vmax;
+      height: 46vmax;
+      border-radius: 50%;
+      content: "";
+      background: radial-gradient(circle, rgba(89, 217, 139, 0.27), transparent 67%);
+      animation: auroraDrift 16s ease-in-out infinite alternate;
+    }
+
+    .aurora::before {
+      top: -18vmax;
+      left: -14vmax;
+    }
+
+    .aurora::after {
+      right: -16vmax;
+      bottom: -19vmax;
+      animation-delay: -8s;
+      animation-direction: alternate-reverse;
+    }
+
+    .content {
+      width: min(600px, calc(100% - 34px));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      z-index: 4;
+      animation: contentEnter 1.1s cubic-bezier(.2,.85,.25,1) both;
+    }
+
+    .logo-stage {
+      position: relative;
+      display: grid;
+      width: 230px;
+      height: 230px;
+      margin-bottom: 31px;
+      place-items: center;
+    }
+
+    .orbit {
+      position: absolute;
+      border: 1px solid rgba(149, 239, 183, 0.19);
+      border-radius: 50%;
+    }
+
+    .orbit-one {
+      width: 228px;
+      height: 228px;
+      animation: rotateSlow 19s linear infinite;
+    }
+
+    .orbit-two {
+      width: 183px;
+      height: 183px;
+      border-style: dashed;
+      animation: rotateReverse 13s linear infinite;
+    }
+
+    .orbit-three {
+      width: 141px;
+      height: 141px;
+      border-color: rgba(196, 255, 216, 0.24);
+      animation: breathe 3s ease-in-out infinite;
+    }
+
+    .orbiter {
+      position: absolute;
+      top: 50%;
+      left: -5px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--green-bright);
+      box-shadow: 0 0 18px 5px rgba(120, 235, 164, 0.52);
+      transform: translateY(-50%);
+    }
+
+    .orbit-one .orbiter {
+      animation: orbitDot 19s linear infinite;
+      transform-origin: 119px 0;
+    }
+
+    .orbit-two .orbiter {
+      width: 7px;
+      height: 7px;
+      background: white;
+      animation: orbitDot 13s linear infinite reverse;
+      transform-origin: 96px 0;
+    }
+
+    .logo-glow {
+      position: absolute;
+      width: 155px;
+      height: 155px;
+      border-radius: 50%;
+      background: rgba(104, 208, 144, 0.25);
+      filter: blur(28px);
+      animation: breathe 3s ease-in-out infinite;
+    }
+
+    .logo-card {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      width: 118px;
+      height: 118px;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(224, 255, 234, 0.36);
+      border-radius: 34px;
+      background:
+        linear-gradient(145deg, rgba(165, 238, 191, 0.98), rgba(65, 167, 111, 0.96));
+      box-shadow:
+        0 24px 65px rgba(47, 173, 104, 0.36),
+        inset 0 1px 1px rgba(255, 255, 255, 0.5);
+      animation: logoFloat 4.3s ease-in-out infinite;
+    }
+
+    .logo-card::before {
+      position: absolute;
+      top: -85%;
+      left: -45%;
+      width: 85%;
+      height: 250%;
+      content: "";
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.43), transparent);
+      transform: rotate(25deg);
+      animation: shine 4s ease-in-out infinite;
+    }
+
+    .logo-card svg {
+      position: relative;
+      z-index: 2;
+      width: 68px;
+      height: 68px;
+      fill: #ffffff;
+      filter: drop-shadow(0 4px 7px rgba(19, 95, 55, 0.2));
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(44px, 8vw, 75px);
+      line-height: 0.95;
+      letter-spacing: -3px;
+      background: linear-gradient(120deg, #ffffff 10%, #c8ffe0 50%, #7cdda4 85%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: titleGlow 4s ease-in-out infinite;
+    }
+
+    .tagline {
+      max-width: 470px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: clamp(14px, 2.2vw, 17px);
+      line-height: 1.7;
+      animation: fadeUp 1.1s 0.3s ease both;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 24px;
+      padding: 9px 14px;
+      border: 1px solid rgba(167, 242, 193, 0.16);
+      border-radius: 999px;
+      color: #d6f8e1;
+      background: rgba(116, 204, 156, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+      animation: fadeUp 1.1s 0.45s ease both;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8cefaf;
+      box-shadow: 0 0 0 4px rgba(140, 239, 175, 0.12);
+      animation: livePulse 1.8s ease-in-out infinite;
+    }
+
+    .progress-shell {
+      width: min(280px, 72vw);
+      height: 4px;
+      margin-top: 26px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: rgba(205, 255, 222, 0.15);
+      animation: fadeUp 1.1s 0.55s ease both;
+    }
+
+    .progress {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #60bd88, #d3ffe2, #69cb92);
+      box-shadow: 0 0 15px rgba(156, 255, 191, 0.75);
+      animation: loading 3.5s cubic-bezier(.16,.76,.21,1) forwards;
+    }
+
+    .loading-text {
+      min-height: 19px;
+      margin-top: 10px;
+      color: rgba(203, 241, 216, 0.62);
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      animation: fadeUp 1.1s 0.65s ease both;
+    }
+
+    .enter-btn {
+      margin-top: 23px;
+      padding: 13px 19px;
+      border: 1px solid rgba(224, 255, 234, 0.25);
+      border-radius: 14px;
+      color: #10341f;
+      background: linear-gradient(135deg, #a5eabd, #64c78f);
+      box-shadow: 0 14px 30px rgba(62, 186, 112, 0.24);
+      font-size: 13px;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      animation: showButton 0.55s 2.7s ease forwards;
+    }
+
+    .enter-btn:hover {
+      background: linear-gradient(135deg, #c0f5d0, #71d69d);
+      box-shadow: 0 18px 36px rgba(62, 186, 112, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .enter-btn:focus-visible {
+      outline: 3px solid rgba(213, 255, 226, 0.65);
+      outline-offset: 4px;
+    }
+
+    .bottom-note {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      color: rgba(186, 229, 200, 0.43);
+      font-size: 10px;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    .particle {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(179, 255, 205, 0.78);
+      box-shadow: 0 0 12px rgba(123, 237, 161, 0.66);
+      animation-name: particleFloat;
+      animation-timing-function: ease-in-out;
+      animation-iteration-count: infinite;
+      will-change: transform, opacity;
+    }
+
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 0 8px rgba(223, 255, 232, 0.95);
+      animation: starTwinkle ease-in-out infinite;
+    }
+
+    .shooter {
+      position: absolute;
+      width: 110px;
+      height: 1px;
+      opacity: 0;
+      background: linear-gradient(90deg, transparent, rgba(216, 255, 230, 0.95), transparent);
+      transform: rotate(-35deg);
+      animation: shoot 7s linear infinite;
+    }
+
+    .ripple {
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border: 1px solid rgba(142, 241, 180, 0.19);
+      border-radius: 50%;
+      opacity: 0;
+      animation: ripple 4.8s ease-out infinite;
+    }
+
+    .ripple.two {
+      animation-delay: 1.6s;
+    }
+
+    .ripple.three {
+      animation-delay: 3.2s;
+    }
+
+    @keyframes gridMove {
+      from { transform: translate3d(0, 0, 0); }
+      to { transform: translate3d(48px, 48px, 0); }
+    }
+
+    @keyframes auroraDrift {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(16vmax, 10vmax, 0) scale(1.18); }
+    }
+
+    @keyframes contentEnter {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(1.5deg); }
+    }
+
+    @keyframes shine {
+      0%, 25% { transform: translateX(-170%) rotate(25deg); }
+      56%, 100% { transform: translateX(250%) rotate(25deg); }
+    }
+
+    @keyframes rotateSlow {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes rotateReverse {
+      to { transform: rotate(-360deg); }
+    }
+
+    @keyframes orbitDot {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(0.96); opacity: 0.7; }
+      50% { transform: scale(1.06); opacity: 1; }
+    }
+
+    @keyframes titleGlow {
+      0%, 100% { filter: drop-shadow(0 0 0 rgba(148, 255, 187, 0)); }
+      50% { filter: drop-shadow(0 0 15px rgba(148, 255, 187, 0.25)); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes livePulse {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(140, 239, 175, 0.12); }
+      50% { box-shadow: 0 0 0 9px rgba(140, 239, 175, 0); }
+    }
+
+    @keyframes loading {
+      0% { width: 0%; }
+      32% { width: 46%; }
+      73% { width: 78%; }
+      100% { width: 100%; }
+    }
+
+    @keyframes showButton {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes particleFloat {
+      0%, 100% {
+        opacity: 0.18;
+        transform: translate3d(0, 0, 0) scale(0.75);
+      }
+      50% {
+        opacity: 0.95;
+        transform: translate3d(var(--drift-x), var(--drift-y), 0) scale(1.25);
+      }
+    }
+
+    @keyframes starTwinkle {
+      0%, 100% { opacity: 0.15; transform: scale(0.7); }
+      50% { opacity: 1; transform: scale(1.6); }
+    }
+
+    @keyframes shoot {
+      0%, 72% {
+        opacity: 0;
+        transform: translate3d(-20vw, -15vh, 0) rotate(-35deg);
+      }
+      74% { opacity: 1; }
+      87% {
+        opacity: 0.9;
+        transform: translate3d(115vw, 90vh, 0) rotate(-35deg);
+      }
+      88%, 100% { opacity: 0; }
+    }
+
+    @keyframes ripple {
+      0% {
+        opacity: 0.42;
+        transform: scale(0.34);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.75);
+      }
+    }
+
+    @media (max-width: 520px) {
+      .logo-stage {
+        width: 195px;
+        height: 195px;
+        margin-bottom: 25px;
+      }
+
+      .orbit-one {
+        width: 195px;
+        height: 195px;
+      }
+
+      .orbit-two {
+        width: 157px;
+        height: 157px;
+      }
+
+      .orbit-three {
+        width: 122px;
+        height: 122px;
+      }
+
+      .logo-card {
+        width: 102px;
+        height: 102px;
+        border-radius: 30px;
+      }
+
+      .logo-card svg {
+        width: 60px;
+        height: 60px;
+      }
+
+      h1 {
+        letter-spacing: -2px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="splash">
+    <div class="noise"></div>
+    <div class="grid"></div>
+    <div class="aurora"></div>
+
+    <div class="particle-field" id="particleField"></div>
+    <div class="stars" id="stars"></div>
+    <div class="shooters" id="shooters"></div>
+
+    <section class="content" aria-label="AyahAI welcome screen">
+      <div class="logo-stage">
+        <div class="ripple"></div>
+        <div class="ripple two"></div>
+        <div class="ripple three"></div>
+
+        <div class="orbit orbit-one">
+          <span class="orbiter"></span>
+        </div>
+
+        <div class="orbit orbit-two">
+          <span class="orbiter"></span>
+        </div>
+
+        <div class="orbit orbit-three"></div>
+
+        <div class="logo-glow"></div>
+
+        <div class="logo-card" aria-label="AyahAI crescent icon">
+          <svg viewBox="0 0 128 128" aria-hidden="true">
+            <path d="M80.9 14.5C50.7 17.6 28 43.1 28 74.1c0 33.1 26.8 59.9 59.9 59.9 15.3 0 29.3-5.8 39.9-15.3-8.1 2.6-16.8 3.5-25.7 2.3-29.4-3.8-51.5-29-51.5-58.6 0-21.1 11.2-39.6 28-49.6 1-.6 2.7-1.7 2.3-3.5z"/>
+            <path d="M95.5 27.2l4.1 10.8 10.8 4.1-10.8 4.1-4.1 10.8-4.1-10.8-10.8-4.1 10.8-4.1z"/>
+          </svg>
+        </div>
+      </div>
+
+      <h1>AyahAI</h1>
+
+      <p class="tagline">
+        Thoughtful Islamic and everyday guidance, powered by live AI.
+      </p>
+
+      <div class="status">
+        <span class="status-dot"></span>
+        <span>Preparing your live AI experience</span>
+      </div>
+
+      <div class="progress-shell" aria-label="Loading AyahAI">
+        <div class="progress"></div>
+      </div>
+
+      <div class="loading-text" id="loadingText">Connecting to knowledge</div>
+
+      <button class="enter-btn" id="enterButton">
+        Enter AyahAI →
+      </button>
+    </section>
+
+    <div class="bottom-note">Live answers · Base & Pro modes · Private local chat history</div>
+  </main>
+
+  <script>
+    const particleField = document.getElementById("particleField");
+    const stars = document.getElementById("stars");
+    const shooters = document.getElementById("shooters");
+    const enterButton = document.getElementById("enterButton");
+    const loadingText = document.getElementById("loadingText");
+
+    /*
+      Creates 120 animated particles, 85 twinkling stars, and 8 shooting stars.
+      Total animated decorative elements: 213+.
+    */
+
+    for (let i = 0; i < 120; i++) {
+      const particle = document.createElement("span");
+      particle.className = "particle";
+
+      const size = Math.random() * 3.8 + 1;
+      const duration = Math.random() * 8 + 5;
+      const delay = Math.random() * -12;
+      const driftX = `${Math.round((Math.random() - 0.5) * 150)}px`;
+      const driftY = `${Math.round((Math.random() - 0.5) * 150)}px`;
+
+      particle.style.width = `${size}px`;
+      particle.style.height = `${size}px`;
+      particle.style.left = `${Math.random() * 100}%`;
+      particle.style.top = `${Math.random() * 100}%`;
+      particle.style.setProperty("--drift-x", driftX);
+      particle.style.setProperty("--drift-y", driftY);
+      particle.style.animationDuration = `${duration}s`;
+      particle.style.animationDelay = `${delay}s`;
+
+      particleField.appendChild(particle);
+    }
+
+    for (let i = 0; i < 85; i++) {
+      const star = document.createElement("span");
+      star.className = "star";
+
+      const size = Math.random() * 2.2 + 0.8;
+
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
+      star.style.left = `${Math.random() * 100}%`;
+      star.style.top = `${Math.random() * 100}%`;
+      star.style.animationDuration = `${Math.random() * 3 + 1.8}s`;
+      star.style.animationDelay = `${Math.random() * -5}s`;
+
+      stars.appendChild(star);
+    }
+
+    for (let i = 0; i < 8; i++) {
+      const shooter = document.createElement("span");
+      shooter.className = "shooter";
+
+      shooter.style.top = `${Math.random() * 100}%`;
+      shooter.style.left = `${Math.random() * 45 - 20}%`;
+      shooter.style.animationDelay = `${i * 1.35}s`;
+      shooter.style.animationDuration = `${Math.random() * 4 + 6}s`;
+
+      shooters.appendChild(shooter);
+    }
+
+    const loadingMessages = [
+      "Connecting to knowledge",
+      "Preparing AyahAI",
+      "Setting up live intelligence",
+      "Almost ready"
+    ];
+
+    let loadingIndex = 0;
+
+    const loadingInterval = setInterval(() => {
+      loadingIndex = (loadingIndex + 1) % loadingMessages.length;
+      loadingText.textContent = loadingMessages[loadingIndex];
+    }, 900);
+
+    function enterAyahAI() {
+      clearInterval(loadingInterval);
+      document.body.style.transition = "opacity 0.45s ease";
+      document.body.style.opacity = "0";
+
+      setTimeout(() => {
+        window.location.href = "home.html";
+      }, 430);
+    }
+
+    enterButton.addEventListener("click", enterAyahAI);
+
+    /*
+      Automatically open the main application after the splash sequence.
+      Remove this block if you want users to always press “Enter AyahAI”.
+    */
+    setTimeout(enterAyahAI, 5000);
+  </script>
+</body>
+</html>
