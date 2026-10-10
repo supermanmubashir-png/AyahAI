@@ -1283,6 +1283,8 @@
 
     renderChatList();
 
+    (() => { const p = new URLSearchParams(window.location.search); if (p.get('askAyahAI') !== '1') return; const prompt = 'Explain the tafseer of ' + (p.get('surah') || 'the selected Surah') + ' Ayah ' + (p.get('ayahNumber') || '?') + '. Use reliable sourced tafsir and distinguish tafsir from translation.\n\nArabic: ' + (p.get('arabic') || '') + '\nTranslation: ' + (p.get('translation') || ''); window.pendingAyahAIPrompt = prompt; if (getApiKey()) { userInputEl.value = prompt; window.pendingAyahAIPrompt = ''; setTimeout(() => sendMessage(), 250); } else { openSettings(); alert('Ayah context is ready. Add your OpenRouter API key in Settings, then save to send it.'); } })();
+
     // ==========================================================
     // EVENTS
     // ==========================================================
