@@ -1582,6 +1582,7 @@
     async function sendMessage() {
       const text = userInputEl.value.trim();
       if (!text) return;
+      if (!getApiKey()) { window.pendingAyahAIPrompt = text; openSettings(); alert('Add your OpenRouter API key in Settings to start chatting.'); return; }
 
       let chat = chats.find(c => c.id === currentChatId);
       if (!chat) return;
