@@ -1386,6 +1386,7 @@
 
       closeSettings();
       renderMessages();
+      if (getApiKey() && window.pendingAyahAIPrompt) { const pending = window.pendingAyahAIPrompt; window.pendingAyahAIPrompt = ''; userInputEl.value = pending; sendMessage(); }
     }
 
     // ==========================================================
